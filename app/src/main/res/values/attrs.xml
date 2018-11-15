@@ -4,6 +4,8 @@
         <attr name="rowCount" format="integer" />
         <attr name="fontSize" format="dimension" />
         <attr name="fontColor" format="color" />
+        <attr name="backgroundColor" format="color" />
+
 
     </declare-styleable>
 </resources>

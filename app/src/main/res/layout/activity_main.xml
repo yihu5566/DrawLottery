@@ -17,13 +17,14 @@
             android:id="@+id/btn_stop"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Stop Drawing" />
+            android:text="rest lottery" />
 
         <Button
             android:id="@+id/btn_start"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Start running" />
+            android:text="Start running"
+            android:visibility="gone" />
         <!--<Button-->
         <!--android:id="@+id/btn_stop"-->
         <!--android:layout_width="wrap_content"-->
@@ -35,9 +36,10 @@
     <com.dongfang.lotteryapplication.LotteryView
         android:id="@+id/lottery_view"
         android:layout_width="match_parent"
-        android:layout_height="300dp"
+        android:layout_height="360dp"
+        app:backgroundColor="#115544"
         app:fontColor="#998323"
         app:fontSize="14dp"
-        app:rowCount="4" />
+        app:rowCount="3" />
 
 </RelativeLayout>

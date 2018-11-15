@@ -1,5 +1,7 @@
 package com.dongfang.lotteryapplication;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -17,7 +19,9 @@ import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.animation.DecelerateInterpolator;
 import android.view.animation.LinearInterpolator;
+import android.widget.Toast;
 
 import java.lang.annotation.ElementType;
 import java.util.ArrayList;
@@ -40,6 +44,10 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
      */
     private Paint mPaint;
     /**
+     * 绘制开始按钮
+     */
+    private Paint mButtonPaint;
+    /**
      * 绘制边框
      */
     private Paint mBorderPaint;
@@ -52,6 +60,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
      * 绘制文字
      */
     private TextPaint mTextPaint;
+
     private ArrayList<Rect> mRectList;
     private int awardCount = 8;
     private SurfaceHolder mHolder;
@@ -65,31 +74,59 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
      */
     private int fontColor;
     /**
+     * 文字的字体大小
+     */
+    private int fontSize;
+    /**
+     * 背景颜色
+     */
+    private int backgroundColor;
+    /**
      * 每个矩形方框的尺寸
      */
     private int everyWidth;
 
     private int currentCount = 0;
+
+
+    /**
+     * 开奖
+     */
+    private int currentStopCount = 0;
+
     private boolean isDrawing;
     private Thread drawThread;
+
 
     private List<String> awardList;
     private ObjectAnimator mRunningAnimator;
 
     public static final int IS_LOTTERYING = 1;
     public static final int IS_DEFAULT = 0;
+    public static final int IS_RESULT = 2;
+
     public int lotteryState = IS_DEFAULT;
-    private boolean isFirstDraw = true;
+    /**
+     * 抽奖按钮的半径
+     */
     private int radius = 100;
     /**
-     * 文字的字体大小
+     * 抽奖按钮是否可用
      */
-    private int fontSize;
+    private boolean isEnable = true;
+
     private String[] str = {"奖品1", "奖品2", "奖品3", "奖品4", "奖品5", "奖品6", "奖品7", "奖品8"};
     /**
      * 实际绘制区域的宽度
      */
     private int realityWidth;
+    /**
+     * 开奖动画,这里需要加
+     */
+    private ObjectAnimator mStopAnimator;
+
+    private Region mButtonRegion;
+    private ValueAnimator mResultingAnimator;
 
     public LotteryView(Context context) {
         this(context, null);
@@ -113,6 +150,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         rowCount = ta.getInteger(R.styleable.LotteryViewAttrs_rowCount, 4);
         fontSize = (int) ta.getDimension(R.styleable.LotteryViewAttrs_fontSize, 16);
         fontColor = ta.getColor(R.styleable.LotteryViewAttrs_fontColor, Color.BLUE);
+        backgroundColor = ta.getColor(R.styleable.LotteryViewAttrs_backgroundColor, Color.GREEN);
 
         ta.recycle();
 
@@ -120,41 +158,30 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
 
 
     public void setAwardList(List<String> awardList) {
+        if (awardList == null || awardList.size() == 0) {
+            LogUtil.d("请传入正确的数据");
+            return;
+        }
         this.awardList = awardList;
-//        if (count%4!=0) {
-//            return;
-//        }
         awardCount = awardList.size();
     }
 
-    public void stopLottery() {
-        isDrawing = false;
-        if (mRunningAnimator != null) {
-            mRunningAnimator.cancel();
-        }
-        lotteryState = IS_DEFAULT;
-//        currentCount = 0;
-//        mRectList.clear();
-//        try {
-//            // 这个就相当于帧频了，数值越小画面就越流畅
-//            mCanvas = mHolder.lockCanvas();
-//            draw();
-//            Thread.sleep(10);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        } finally {
-//            LogUtil.d("run_finally--unlockCanvasAndPost：");
-//            mHolder.unlockCanvasAndPost(mCanvas);
-//        }
-    }
 
     public void setCurrentCount(int currentCount) {
-        this.currentCount = currentCount;
+        if (this.currentCount == mRectList.size()) {
+            this.currentCount = 0;
+        } else {
+            this.currentCount++;
+
+        }
         LogUtil.d("setCurrentCount--" + currentCount);
         mRectList.clear();
         try {
             // 这个就相当于帧频了，数值越小画面就越流畅
             mCanvas = mHolder.lockCanvas();
+//            mCanvas.save();
+//            drawShade(mCanvas);
+//            mCanvas.restore();
             draw();
             Thread.sleep(10);
         } catch (Exception e) {
@@ -165,6 +192,11 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         }
     }
 
+    public void setCurrentStopCount(int currentStopCount) {
+        LogUtil.d("setcurrentStopCount--" + currentStopCount);
+        this.currentStopCount = currentStopCount;
+        setCurrentCount(currentCount++);
+    }
 
     private void init() {
         mHolder = getHolder();
@@ -174,8 +206,12 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         awardList = new ArrayList();
 
         mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mPaint.setColor(Color.GREEN);
+        mPaint.setColor(backgroundColor);
         mPaint.setStyle(Paint.Style.FILL);
+
+        mButtonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        mButtonPaint.setColor(Color.RED);
+        mButtonPaint.setStyle(Paint.Style.FILL);
 
         mBorderPaint = new Paint();
         mBorderPaint.setStrokeWidth(3);
@@ -212,6 +248,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         currentCount = 0;
         if (mRunningAnimator != null) {
             mRunningAnimator.cancel();
+            mRunningAnimator.removeAllListeners();
         }
         isDrawing = false;
 //        mHolder.removeCallback(this);
@@ -237,7 +274,13 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
             case MotionEvent.ACTION_UP:
                 if (mButtonRegion.contains(x, y)) {
                     LogUtil.d("onTouchEvent-X:" + x + "Y:" + y);
-                    startLottery();
+                    if (isEnable) {
+                        if (lotteryState == IS_DEFAULT) {
+                            startLottery();
+                        } else if (lotteryState == IS_LOTTERYING) {
+                            stopLottery();
+                        }
+                    }
                 }
                 break;
             default:
@@ -273,30 +316,91 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
      */
     private void startLottery() {
         lotteryState = IS_LOTTERYING;
+        drawLotteryButton(mCanvas);
         if (currentCount > mRectList.size()) {
             return;
         }
-        if (mRunningAnimator != null && mRunningAnimator.isRunning()) {
+        if (mRunningAnimator != null) {
             currentCount = 0;
             mRunningAnimator.cancel();
         }
+//        int timeResult = testRandom3() * 1000;
         //由于属性动画中，当达到最终值会立刻跳到下一次循环，所以需要补1
-        mRunningAnimator = ObjectAnimator.ofInt(this, "currentCount", 0, mRectList.size());
+        mRunningAnimator = ObjectAnimator.ofInt(this, "currentCount", 0, 1);
         mRunningAnimator.setRepeatMode(ValueAnimator.RESTART);
         mRunningAnimator.setRepeatCount(ValueAnimator.INFINITE);
         mRunningAnimator.setDuration(3000);
         mRunningAnimator.setInterpolator(new LinearInterpolator());
         mRunningAnimator.start();
 
+    }
+
+    /**
+     * 重置抽奖状态
+     */
+    public void resetLottery() {
+        lotteryState = IS_DEFAULT;
+        drawLotteryButton(mCanvas);
+        isDrawing = true;
+        isEnable = true;
+        currentCount = 0;
+        if (mRunningAnimator != null) {
+            mRunningAnimator.cancel();
+        }
+        mRectList.clear();
+        try {
+            // 这个就相当于帧频了，数值越小画面就越流畅
+            mCanvas = mHolder.lockCanvas();
+            draw();
+            Thread.sleep(10);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            LogUtil.d("run_finally--unlockCanvasAndPost：");
+            mHolder.unlockCanvasAndPost(mCanvas);
+        }
+    }
+
+    private void stopLottery() {
+        LogUtil.d("stopLottery--开奖了");
+        isDrawing = true;
+        isEnable = false;
+        lotteryState = IS_RESULT;
+        int timeResult = testRandom3() * 500;
         postDelayed(new Runnable() {
             @Override
             public void run() {
-                stopLottery();
+                if (mRunningAnimator != null) {
+                    mRunningAnimator.setDuration(5000);
+                    mRunningAnimator.addListener(new Animator.AnimatorListener() {
+                        @Override
+                        public void onAnimationStart(Animator animation) {
+
+                        }
+
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+
+                        }
+
+                        @Override
+                        public void onAnimationCancel(Animator animation) {
+                            if (currentCount != mRectList.size()) {
+                                Toast.makeText(getContext(), "中奖了：" + awardList.get(currentCount), Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onAnimationRepeat(Animator animation) {
+
+                        }
+                    });
+                    mRunningAnimator.cancel();
+                }
             }
-        }, 1000 * testRandom3());
+        }, timeResult);
 
     }
-
 
     private int testRandom3() {
         Random random = new Random();
@@ -312,23 +416,36 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         calculate();
         //绘制抽奖的背景
         drawBackground(mCanvas);
+        //绘制开始按钮
+        drawLotteryButton(mCanvas);
         //绘制遮罩
         drawShade(mCanvas);
-        mCanvas.save();
+    }
 
+    private void drawLotteryButton(Canvas canvas) {
+        mButtonRegion = new Region(realityWidth / 2 - radius / 2, realityWidth / 2 - radius / 2, realityWidth / 2 + radius / 2, realityWidth / 2 + radius / 2);
+        canvas.drawCircle(realityWidth / 2, realityWidth / 2, radius, mButtonPaint);
+        if (lotteryState == IS_LOTTERYING) {
+            Point point = calculateTextLocation(mButtonRegion.getBounds(), "STOP");
+            canvas.drawText("STOP", point.x, point.y, mTextPaint);
+        } else {
+            Point point = calculateTextLocation(mButtonRegion.getBounds(), "GO");
+            canvas.drawText("GO", point.x, point.y, mTextPaint);
+
+        }
     }
 
     private Point calculateTextLocation(Rect rectF1, String text) {
         Point point = new Point();
         //矩形区域的宽度
-        float rectWidth = rectF1.right - rectF1.left;
+        int rectWidth = rectF1.right - rectF1.left;
         Rect rect = new Rect();
         mTextPaint.getTextBounds(text, 0, text.length(), rect);
         int textWidth = rect.width();
         int textHeight = rect.height();
 
         float heih = rectF1.top + rectWidth / 2 + textHeight / 2;
-        point.set((int) rectF1.left, (int) heih);
+        point.set(rectF1.left+(rectWidth - textWidth)/2, (int) heih);
 
         return point;
 
@@ -336,15 +453,17 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
 
 
     private void drawShade(Canvas mCanvas) {
-        LogUtil.d("开始绘制阴影图");
-        mCanvas.drawRect(mRectList.get(currentCount), mShadePaint);
+        LogUtil.d("开始绘制阴影图" + currentCount);
+        if (mRectList.size() > currentCount) {
+            mCanvas.drawRect(mRectList.get(currentCount), mShadePaint);
+        }
         if (mRectList.size() == rowCount * 4) {
             isDrawing = false;
         }
     }
 
     /**
-     * 计算需要多少个奖品块，奖品平均喷配到4个边上
+     * 计算需要多少个奖品块，奖品平均分配到4个边上
      */
     private void calculate() {
         if (mCanvas.getWidth() < mCanvas.getHeight()) {
@@ -364,7 +483,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
             Rect rect = new Rect(left, top, right, bottom);
             mRectList.add(rect);
         }
-        LogUtil.d("calculate1--mRectList长度：" + mRectList.size());
+//        LogUtil.d("calculate1--mRectList长度：" + mRectList.size());
 
         left = rowCount * everyWidth;
         top = -everyWidth;
@@ -378,7 +497,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
 //            LogUtil.d("calculate2--top:" + rect.top + "bottom:" + rect.bottom);
 
         }
-        LogUtil.d("calculate2--mRectList长度：" + mRectList.size());
+//        LogUtil.d("calculate2--mRectList长度：" + mRectList.size());
 
         left = (rowCount + 1) * everyWidth;
         top = rowCount * everyWidth;
@@ -392,7 +511,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
 //            LogUtil.d("calculate3--left:" + rect.left + "right:" + rect.right);
 
         }
-        LogUtil.d("calculate3--mRectList长度：" + mRectList.size());
+//        LogUtil.d("calculate3--mRectList长度：" + mRectList.size());
 
         left = 0;
         top = (rowCount + 1) * everyWidth;
@@ -406,32 +525,25 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
 //            LogUtil.d("calculate4--top:" + rect.top + "bottom:" + rect.bottom);
 
         }
-        LogUtil.d("calculate4--mRectList长度：" + mRectList.size());
+//        LogUtil.d("calculate4--mRectList长度：" + mRectList.size());
 
     }
 
-    Region mButtonRegion;
 
     private void drawBackground(Canvas canvas) {
-        LogUtil.d("mRectList长度：" + mRectList.size());
-        mButtonRegion = new Region(realityWidth / 2 - radius / 2, realityWidth / 2 - radius / 2, realityWidth / 2 + radius / 2, realityWidth / 2 + radius / 2);
-        Point point = calculateTextLocation(mButtonRegion.getBounds(), "GO");
-        mPaint.setColor(Color.RED);
-        canvas.drawCircle(realityWidth / 2, realityWidth / 2, radius, mPaint);
-        mCanvas.drawText("GO", point.x, point.y, mTextPaint);
-
+//        LogUtil.d("mRectList长度：" + mRectList.size());
+        canvas.drawRect(new Rect(0, 0, mCanvas.getWidth(), canvas.getHeight()), mPaint);
         for (int i = 0; i < mRectList.size(); i++) {
-            LogUtil.d("开始绘制第：" + i);
+//            LogUtil.d("开始绘制第：" + i);
             Rect rectF1 = mRectList.get(i);
-            mPaint.setColor(Color.GREEN);
             canvas.drawRect(rectF1, mPaint);
             canvas.drawRect(rectF1, mBorderPaint);
             //计算文字的位置
             if (i < awardCount) {
-                point = calculateTextLocation(rectF1, awardList.get(i));
+                Point point = calculateTextLocation(rectF1, awardList.get(i));
                 mCanvas.drawText(awardList.get(i), point.x, point.y, mTextPaint);
             } else {
-                point = calculateTextLocation(rectF1, awardList.get(i - awardCount));
+                Point point = calculateTextLocation(rectF1, awardList.get(i - awardCount));
                 mCanvas.drawText(awardList.get(i - awardCount), point.x, point.y, mTextPaint);
 
             }

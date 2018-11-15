@@ -15,7 +15,7 @@ public class MainActivity extends AppCompatActivity {
     private LotteryView lotteryView;
     private Button btnStart;
     private String[] str = {"奖品1", "奖品2", "奖品3", "奖品4", "奖品5", "奖品6", "奖品7", "奖品8",
-            "奖品9", "奖品10", "奖品11", "奖品12", "奖品13", "奖品14", "奖品15", "奖品16"};
+            "奖品9", "奖品10", "奖品11", "奖品12"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
         btnStop.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                lotteryView.stopLottery();
+                lotteryView.resetLottery();
             }
         });
         btnStart.setOnClickListener(new View.OnClickListener() {
