@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="LotteryViewAttrs">
+        <attr name="rowCount" format="integer" />
+        <attr name="fontSize" format="dimension" />
+        <attr name="fontColor" format="color" />
+
+    </declare-styleable>
+</resources>
