@@ -89,11 +89,6 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
     private int currentCount = 0;
 
 
-    /**
-     * 开奖
-     */
-    private int currentStopCount = 0;
-
     private boolean isDrawing;
     private Thread drawThread;
 
@@ -121,12 +116,13 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
      */
     private int realityWidth;
     /**
-     * 开奖动画,这里需要加
+     * 一圈多少毫秒
      */
-    private ObjectAnimator mStopAnimator;
+    private int roundTime = 500;
 
     private Region mButtonRegion;
     private ValueAnimator mResultingAnimator;
+    private int result;
 
     public LotteryView(Context context) {
         this(context, null);
@@ -166,15 +162,20 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         awardCount = awardList.size();
     }
 
+    private int lasCurrentCount;
 
     public void setCurrentCount(int currentCount) {
-        if (this.currentCount == mRectList.size()) {
-            this.currentCount = 0;
-        } else {
-            this.currentCount++;
-
+        this.currentCount = currentCount;
+//        if (this.currentCount == mRectList.size()) {
+//            this.currentCount = 0;
+//        } else {
+//            this.currentCount++;
+//        }
+        if (lasCurrentCount == currentCount) {
+            return;
         }
-        LogUtil.d("setCurrentCount--" + currentCount);
+        LogUtil.d("setCurrentCount--" + this.currentCount);
+
         mRectList.clear();
         try {
             // 这个就相当于帧频了，数值越小画面就越流畅
@@ -187,16 +188,17 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            LogUtil.d("run_finally--unlockCanvasAndPost：");
+//            LogUtil.d("run_finally--unlockCanvasAndPost：");
             mHolder.unlockCanvasAndPost(mCanvas);
         }
+        lasCurrentCount = currentCount;
     }
 
-    public void setCurrentStopCount(int currentStopCount) {
-        LogUtil.d("setcurrentStopCount--" + currentStopCount);
-        this.currentStopCount = currentStopCount;
-        setCurrentCount(currentCount++);
-    }
+//    public void setCurrentStopCount(int currentStopCount) {
+//        LogUtil.d("setcurrentStopCount--" + currentStopCount);
+//        this.currentStopCount = currentStopCount;
+//        setCurrentCount(currentCount++);
+//    }
 
     private void init() {
         mHolder = getHolder();
@@ -301,7 +303,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
-                LogUtil.d("run_finally--unlockCanvasAndPost：");
+//                LogUtil.d("run_finally--unlockCanvasAndPost：");
                 mHolder.unlockCanvasAndPost(mCanvas);
             }
         }
@@ -315,6 +317,8 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
      * @param
      */
     private void startLottery() {
+        LogUtil.d("startLottery--开奖了");
+
         lotteryState = IS_LOTTERYING;
         drawLotteryButton(mCanvas);
         if (currentCount > mRectList.size()) {
@@ -326,10 +330,10 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         }
 //        int timeResult = testRandom3() * 1000;
         //由于属性动画中，当达到最终值会立刻跳到下一次循环，所以需要补1
-        mRunningAnimator = ObjectAnimator.ofInt(this, "currentCount", 0, 1);
+        mRunningAnimator = ObjectAnimator.ofInt(this, "currentCount", 0, mRectList.size());
         mRunningAnimator.setRepeatMode(ValueAnimator.RESTART);
         mRunningAnimator.setRepeatCount(ValueAnimator.INFINITE);
-        mRunningAnimator.setDuration(3000);
+        mRunningAnimator.setDuration(roundTime);
         mRunningAnimator.setInterpolator(new LinearInterpolator());
         mRunningAnimator.start();
 
@@ -356,49 +360,117 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            LogUtil.d("run_finally--unlockCanvasAndPost：");
+//            LogUtil.d("run_finally--unlockCanvasAndPost：");
             mHolder.unlockCanvasAndPost(mCanvas);
         }
     }
+
 
     private void stopLottery() {
         LogUtil.d("stopLottery--开奖了");
         isDrawing = true;
         isEnable = false;
         lotteryState = IS_RESULT;
-        int timeResult = testRandom3() * 500;
-        postDelayed(new Runnable() {
+        //结果动画
+        result = getResult();
+        mResultingAnimator = ValueAnimator.ofInt(0, mRectList.size() + result);
+        mResultingAnimator.setInterpolator(new DecelerateInterpolator());
+        int duration = (int) (roundTime + (float) result / mRectList.size() * roundTime);
+        mResultingAnimator.setDuration(duration);
+        mResultingAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override
-            public void run() {
-                if (mRunningAnimator != null) {
-                    mRunningAnimator.setDuration(5000);
-                    mRunningAnimator.addListener(new Animator.AnimatorListener() {
-                        @Override
-                        public void onAnimationStart(Animator animation) {
+            public void onAnimationUpdate(ValueAnimator animation) {
+                //更新当前的数值
+                int currentCount = (int) animation.getAnimatedValue() % mRectList.size();
+//                LogUtil.d("stopLottery--ValueAnimator更新。。。" + currentCount);
+                setCurrentCount(currentCount);
+            }
 
-                        }
 
-                        @Override
-                        public void onAnimationEnd(Animator animation) {
+        });
 
-                        }
+        mResultingAnimator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
 
-                        @Override
-                        public void onAnimationCancel(Animator animation) {
-                            if (currentCount != mRectList.size()) {
-                                Toast.makeText(getContext(), "中奖了：" + awardList.get(currentCount), Toast.LENGTH_SHORT).show();
-                            }
-                        }
+            }
 
-                        @Override
-                        public void onAnimationRepeat(Animator animation) {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                LogUtil.d("stopLottery--结果动画开始。。。");
 
-                        }
-                    });
-                    mRunningAnimator.cancel();
+                if (currentCount != mRectList.size()) {
+                    Toast.makeText(getContext(), "中奖了：" + awardList.get(currentCount), Toast.LENGTH_SHORT).show();
                 }
             }
-        }, timeResult);
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        });
+        //不是完整一圈的，要把一圈走完
+        final ObjectAnimator tempAnimator = ObjectAnimator.ofInt(this, "currentCount", currentCount, mRectList.size());
+//        int duration1 = (int) (roundTime + (float) result / mRectList.size() * roundTime);
+
+        float tempDuration = (float) (mRectList.size() - currentCount) / mRectList.size() * roundTime;
+        tempAnimator.setDuration((long) tempDuration);
+        tempAnimator.setInterpolator(new LinearInterpolator());
+        tempAnimator.addListener(new Animator.AnimatorListener() {
+            @Override
+            public void onAnimationStart(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                //过渡动画完成，产生真正的结果
+                LogUtil.d("stopLottery--结果动画开始。。。");
+                mResultingAnimator.start();
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animation) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(Animator animation) {
+
+            }
+        });
+
+        if (mRunningAnimator != null) {
+            mRunningAnimator.addListener(new Animator.AnimatorListener() {
+                @Override
+                public void onAnimationStart(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    LogUtil.d("stopLottery--过渡动画开始");
+                    tempAnimator.start();
+
+                }
+
+                @Override
+                public void onAnimationCancel(Animator animation) {
+
+                }
+
+                @Override
+                public void onAnimationRepeat(Animator animation) {
+
+                }
+            });
+            mRunningAnimator.cancel();
+        }
 
     }
 
@@ -445,7 +517,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         int textHeight = rect.height();
 
         float heih = rectF1.top + rectWidth / 2 + textHeight / 2;
-        point.set(rectF1.left+(rectWidth - textWidth)/2, (int) heih);
+        point.set(rectF1.left + (rectWidth - textWidth) / 2, (int) heih);
 
         return point;
 
@@ -453,7 +525,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
 
 
     private void drawShade(Canvas mCanvas) {
-        LogUtil.d("开始绘制阴影图" + currentCount);
+//        LogUtil.d("开始绘制阴影图" + currentCount);
         if (mRectList.size() > currentCount) {
             mCanvas.drawRect(mRectList.get(currentCount), mShadePaint);
         }
@@ -552,22 +624,11 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
     }
 
 
-//    private int generateResult() {
-//        //产生抽奖结果
-//        Random random = new Random();
-//        float r = random.nextFloat();
-//        float total = 0;
-//        float lastTotal = 0;
-//        int size = awardList.size();
-//        for (int i = 0; i < size; i++) {
-////            total += awardNam[i].getRate();
-//            if (r >= lastTotal && r <= total) {
-//                return i;
-//            }
-//            lastTotal = total;
-//        }
-//        return -1;
-//    }
+    private int getResult() {
+        //产生抽奖结果
+
+        return 8;
+    }
 
 
 }
