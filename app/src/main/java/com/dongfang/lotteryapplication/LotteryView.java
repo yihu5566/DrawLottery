@@ -389,30 +389,16 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
 
         });
 
-        mResultingAnimator.addListener(new Animator.AnimatorListener() {
-            @Override
-            public void onAnimationStart(Animator animation) {
-
-            }
+        mResultingAnimator.addListener(new MyAnimatorListener() {
 
             @Override
             public void onAnimationEnd(Animator animation) {
                 LogUtil.d("stopLottery--结果动画开始。。。");
-
                 if (currentCount != mRectList.size()) {
                     Toast.makeText(getContext(), "中奖了：" + awardList.get(currentCount), Toast.LENGTH_SHORT).show();
                 }
             }
 
-            @Override
-            public void onAnimationCancel(Animator animation) {
-
-            }
-
-            @Override
-            public void onAnimationRepeat(Animator animation) {
-
-            }
         });
         //不是完整一圈的，要把一圈走完
         final ObjectAnimator tempAnimator = ObjectAnimator.ofInt(this, "currentCount", currentCount, mRectList.size());
@@ -421,11 +407,7 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
         float tempDuration = (float) (mRectList.size() - currentCount) / mRectList.size() * roundTime;
         tempAnimator.setDuration((long) tempDuration);
         tempAnimator.setInterpolator(new LinearInterpolator());
-        tempAnimator.addListener(new Animator.AnimatorListener() {
-            @Override
-            public void onAnimationStart(Animator animation) {
-
-            }
+        tempAnimator.addListener(new MyAnimatorListener() {
 
             @Override
             public void onAnimationEnd(Animator animation) {
@@ -434,23 +416,10 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
                 mResultingAnimator.start();
             }
 
-            @Override
-            public void onAnimationCancel(Animator animation) {
-
-            }
-
-            @Override
-            public void onAnimationRepeat(Animator animation) {
-
-            }
         });
 
         if (mRunningAnimator != null) {
-            mRunningAnimator.addListener(new Animator.AnimatorListener() {
-                @Override
-                public void onAnimationStart(Animator animation) {
-
-                }
+            mRunningAnimator.addListener(new MyAnimatorListener() {
 
                 @Override
                 public void onAnimationEnd(Animator animation) {
@@ -459,15 +428,6 @@ public class LotteryView extends SurfaceView implements SurfaceHolder.Callback, 
 
                 }
 
-                @Override
-                public void onAnimationCancel(Animator animation) {
-
-                }
-
-                @Override
-                public void onAnimationRepeat(Animator animation) {
-
-                }
             });
             mRunningAnimator.cancel();
         }
