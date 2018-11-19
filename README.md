@@ -5,5 +5,5 @@
 
 [博客地址](https://blog.csdn.net/shayubuhuifei/article/details/84107114)
 
-![主要内容](/DrawLottery/ezgif.com-video-to-gif.gif)
+![主要内容](/ezgif.com-video-to-gif.gif)
 
